@@ -1,0 +1,669 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Comment Tool - Automated Facebook Commenting</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 30px;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+        }
+
+        .header h1 {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 1rem;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+            cursor: pointer;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            border-left: 4px solid #667eea;
+            padding-left: 15px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            color: #333;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+            font-family: inherit;
+        }
+
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .btn-stop {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+        }
+
+        .btn-stop:hover:not(:disabled) {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+        }
+
+        .sessions-list {
+            max-height: 500px;
+            overflow-y: auto;
+        }
+
+        .session-item {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            transition: transform 0.2s;
+        }
+
+        .session-item:hover {
+            transform: translateX(5px);
+        }
+
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .session-id {
+            font-family: monospace;
+            font-size: 1rem;
+            font-weight: 600;
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.1);
+            padding: 4px 12px;
+            border-radius: 8px;
+        }
+
+        .status {
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+        }
+
+        .status.running {
+            background: #84fab0;
+            color: #333;
+            animation: pulse 1.5s infinite;
+        }
+
+        .status.stopped {
+            background: #fa709a;
+            color: white;
+        }
+
+        .session-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .comment-count {
+            color: #667eea;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .session-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .session-actions button {
+            padding: 6px 15px;
+            font-size: 12px;
+            width: auto;
+            margin: 0;
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background: white;
+            border-radius: 20px;
+            padding: 30px;
+            max-width: 800px;
+            width: 90%;
+            max-height: 80%;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .close {
+            font-size: 28px;
+            cursor: pointer;
+            color: #999;
+            transition: color 0.2s;
+        }
+
+        .close:hover {
+            color: #333;
+        }
+
+        .logs-container {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 15px;
+            font-family: monospace;
+            font-size: 12px;
+            color: #00ff88;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .log-line {
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+
+        .alert {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            animation: slideDown 0.3s ease;
+        }
+
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .alert-info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px;
+            color: #999;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .session-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .session-stats {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .session-actions {
+                width: 100%;
+            }
+            
+            .session-actions button {
+                flex: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💬 FB Comment Tool</h1>
+            <p>Automated Facebook Commenting System</p>
+        </div>
+
+        <div class="stats">
+            <div class="stat-card" onclick="refreshSessions()">
+                <div class="stat-value" id="totalComments">0</div>
+                <div class="stat-label">Total Comments Sent</div>
+            </div>
+            <div class="stat-card" onclick="refreshSessions()">
+                <div class="stat-value" id="activeSessions">0</div>
+                <div class="stat-label">Active Sessions</div>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <div class="card">
+                <h2>🚀 Start New Session</h2>
+                <form id="startSessionForm">
+                    <div class="form-group">
+                        <label>Post ID/URL *</label>
+                        <input type="text" id="postId" placeholder="https://facebook.com/..." required>
+                    </div>
+                    <div class="form-group">
+                        <label>Cookies *</label>
+                        <textarea id="cookies" placeholder="Paste your Facebook cookies here..." required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Comments (one per line) *</label>
+                        <textarea id="comments" placeholder="Nice post!&#10;Great content!&#10;Thanks for sharing!" required></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Prefix (optional)</label>
+                        <input type="text" id="prefix" placeholder="@username">
+                    </div>
+                    <div class="form-group">
+                        <label>Delay between comments (seconds)</label>
+                        <input type="number" id="delay" value="30" min="10" max="3600">
+                    </div>
+                    <button type="submit">START SESSION</button>
+                </form>
+                <div id="formMessage"></div>
+            </div>
+
+            <div class="card">
+                <h2>📊 Active Sessions</h2>
+                <div id="sessionsList" class="sessions-list">
+                    <div class="empty-state">Loading sessions...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal for logs -->
+    <div id="logModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>📋 Session Logs</h2>
+                <span class="close">&times;</span>
+            </div>
+            <div id="modalLogs" class="logs-container">
+                <div style="text-align: center; color: #999;">Loading logs...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        let autoRefreshInterval;
+
+        // Load sessions on page load
+        loadSessions();
+
+        // Auto-refresh every 3 seconds
+        autoRefreshInterval = setInterval(loadSessions, 3000);
+
+        // Socket.IO events
+        socket.on('session_update', function(data) {
+            console.log('Session update:', data);
+            loadSessions();
+        });
+
+        socket.on('connect', function() {
+            console.log('Connected to server');
+        });
+
+        socket.on('disconnect', function() {
+            console.log('Disconnected from server');
+        });
+
+        // Handle form submission
+        document.getElementById('startSessionForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const formData = {
+                post_id: document.getElementById('postId').value,
+                cookies: document.getElementById('cookies').value,
+                comments: document.getElementById('comments').value,
+                prefix: document.getElementById('prefix').value,
+                delay: document.getElementById('delay').value
+            };
+            
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Starting...';
+            
+            try {
+                const response = await fetch('/api/create_session', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showMessage('✅ Session started successfully! ID: ' + result.session_id, 'success');
+                    document.getElementById('startSessionForm').reset();
+                    loadSessions();
+                } else {
+                    showMessage('❌ ' + result.error, 'error');
+                }
+            } catch (error) {
+                showMessage('❌ Error starting session: ' + error.message, 'error');
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'START SESSION';
+            }
+        });
+
+        async function loadSessions() {
+            try {
+                const response = await fetch('/api/sessions');
+                const data = await response.json();
+                
+                document.getElementById('totalComments').textContent = data.total_comments;
+                document.getElementById('activeSessions').textContent = data.active_count;
+                
+                const sessionsList = document.getElementById('sessionsList');
+                
+                if (!data.sessions || data.sessions.length === 0) {
+                    sessionsList.innerHTML = '<div class="empty-state">✨ No active sessions. Start a new session!</div>';
+                    return;
+                }
+                
+                sessionsList.innerHTML = '';
+                
+                for (const session of data.sessions) {
+                    const sessionDiv = document.createElement('div');
+                    sessionDiv.className = 'session-item';
+                    sessionDiv.innerHTML = `
+                        <div class="session-header">
+                            <span class="session-id">🔑 ${session.id}</span>
+                            <span class="status ${session.running ? 'running' : 'stopped'}">
+                                ${session.running ? '🟢 RUNNING' : '🔴 STOPPED'}
+                            </span>
+                        </div>
+                        <div class="session-stats">
+                            <div class="comment-count">💬 ${session.count} comments sent</div>
+                            <div class="session-actions">
+                                <button onclick="viewLogs('${session.id}')" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">📋 View Logs</button>
+                                ${session.running ? `<button onclick="stopSession('${session.id}')" class="btn-stop">⏹️ Stop Session</button>` : ''}
+                            </div>
+                        </div>
+                    `;
+                    sessionsList.appendChild(sessionDiv);
+                }
+            } catch (error) {
+                console.error('Error loading sessions:', error);
+                document.getElementById('sessionsList').innerHTML = '<div class="empty-state">⚠️ Error loading sessions. Please refresh.</div>';
+            }
+        }
+
+        async function stopSession(sessionId) {
+            if (confirm('⚠️ Are you sure you want to stop this session?\n\nSession ID: ' + sessionId)) {
+                const stopBtn = event.target;
+                const originalText = stopBtn.textContent;
+                stopBtn.disabled = true;
+                stopBtn.textContent = 'Stopping...';
+                
+                try {
+                    const response = await fetch(`/api/stop_session/${sessionId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        showMessage(`✅ Session ${sessionId} stopped successfully!`, 'success');
+                        loadSessions();
+                    } else {
+                        showMessage(`❌ Failed to stop session: ${result.message}`, 'error');
+                    }
+                } catch (error) {
+                    showMessage(`❌ Error stopping session: ${error.message}`, 'error');
+                } finally {
+                    stopBtn.disabled = false;
+                    stopBtn.textContent = originalText;
+                }
+            }
+        }
+
+        async function viewLogs(sessionId) {
+            const modal = document.getElementById('logModal');
+            const modalLogs = document.getElementById('modalLogs');
+            
+            modal.style.display = 'flex';
+            modalLogs.innerHTML = '<div style="text-align: center;">📥 Loading logs...</div>';
+            
+            try {
+                const response = await fetch(`/api/session/${sessionId}`);
+                const data = await response.json();
+                
+                if (data.error) {
+                    modalLogs.innerHTML = `<div style="text-align: center; color: red;">❌ ${data.error}</div>`;
+                } else if (data.logs && data.logs.length > 0) {
+                    modalLogs.innerHTML = `
+                        <div style="margin-bottom: 10px; padding: 5px; background: #2d2d2d; border-radius: 5px;">
+                            <strong>Session ID:</strong> ${data.id}<br>
+                            <strong>Status:</strong> ${data.running ? '🟢 Running' : '🔴 Stopped'}<br>
+                            <strong>Comments Sent:</strong> ${data.count}<br>
+                            <strong>Started:</strong> ${data.start_time || 'N/A'}
+                        </div>
+                        <hr style="border-color: #333; margin: 10px 0;">
+                    `;
+                    modalLogs.innerHTML += data.logs.map(log => `<div class="log-line">${escapeHtml(log)}</div>`).join('');
+                } else {
+                    modalLogs.innerHTML = '<div style="text-align: center; color: #ff6b6b;">📭 No logs available for this session</div>';
+                }
+            } catch (error) {
+                modalLogs.innerHTML = `<div style="text-align: center; color: red;">❌ Error loading logs: ${error.message}</div>`;
+            }
+        }
+
+        function showMessage(message, type) {
+            const messageDiv = document.getElementById('formMessage');
+            messageDiv.innerHTML = `<div class="alert alert-${type}">${message}</div>`;
+            setTimeout(() => {
+                messageDiv.innerHTML = '';
+            }, 5000);
+        }
+
+        function refreshSessions() {
+            loadSessions();
+            showMessage('🔄 Refreshing sessions...', 'info');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Modal close functionality
+        const modal = document.getElementById('logModal');
+        const closeBtn = document.querySelector('.close');
+        
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+        
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // Keyboard shortcut to close modal
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape' && modal.style.display === 'flex') {
+                modal.style.display = 'none';
+            }
+        });
+    </script>
+</body>
+</html>
